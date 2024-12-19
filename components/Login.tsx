@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ImageBackground } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../type';
+import { database } from '../firebaseConfig'; // Import cấu hình Firebase
+import { ref, onValue } from "firebase/database"; // Firebase functions
 
 // Define the navigation prop type
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -10,18 +12,45 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const navigation = useNavigation<NavigationProp>(); // Type the navigation object
+  const [users, setUsers] = useState<any[]>([]); // State để lưu dữ liệu người dùng
+  const navigation = useNavigation<NavigationProp>();
+
+  useEffect(() => {
+    // Lấy dữ liệu từ Firebase
+    const usersRef = ref(database, 'Students');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const usersArray = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key],
+        }));
+        setUsers(usersArray);
+      } else {
+        console.log("No data available");
+      }
+    });
+
+    // Cleanup subscription
+    return () => unsubscribe();
+  }, []);
 
   const handleLogin = () => {
     if (!email || !password) {
       Alert.alert('Lỗi', 'Vui lòng nhập email và mật khẩu!');
       return;
     }
-    Alert.alert('Đăng nhập', `Email: ${email}\nPassword: ${password}`);
+
+    const user = users.find(u => u.email === email && u.password === password);
+    if (user) {
+      Alert.alert('Đăng nhập thành công', `Chào mừng ${user.fullName}`);
+    } else {
+      Alert.alert('Đăng nhập thất bại', 'Email hoặc mật khẩu không đúng!');
+    }
   };
 
   const handleSignUp = () => {
-    navigation.navigate('Register'); // Now TypeScript knows 'Register' is a valid route
+    navigation.navigate('Register');
   };
 
   return (
@@ -74,7 +103,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   title: {
     fontSize: 24,
@@ -103,7 +132,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    marginTop: 12
+    marginTop: 12,
   },
   buttonText: {
     color: '#fff',
